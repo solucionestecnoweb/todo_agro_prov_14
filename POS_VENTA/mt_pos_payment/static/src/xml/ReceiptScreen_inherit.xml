@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="ReceiptScreen" t-inherit="point_of_sale.ReceiptScreen" t-inherit-mode="extension" owl="1">
+        <xpath expr="//div[@class='buttons']" position="after">
+            <style>
+                            .boton_nuevo_registro{
+                                text-decoration: none;
+                                padding: 6px;
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                font-family: helvetica;
+                                font-weight: 200;
+                                font-size: 24px;
+                                font-style: arial;
+                                color: #FFFFFF;/* color letra*/
+                                background-color: #6EC89B;/* color boton*/
+                                border-radius: 5px;
+                                border: 3px double #6EC89B;
+                              }
+
+            </style>
+            <div align="center" class="boton_nuevo_registro" t-on-click="ImprimirFiscal"><i class='fa fa-print'></i><a><span style="color:#FFFFFF "> Imprimir Factura</span></a></div>
+            <br/>
+        </xpath>
+        
+    </t>
+
+</templates>
