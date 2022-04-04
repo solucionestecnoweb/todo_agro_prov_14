@@ -36,7 +36,7 @@
 			</xpath>
 
             <xpath expr="//button[@id='account_invoice_payment_btn']" position="after">
-                         <button name="llenar" string="Llenar tabla temporal para el resto de las facturas" type="object" />
+                         <!--button name="llenar" string="Llenar tabla temporal para el resto de las facturas" type="object" /-->
                          <!--button name="button_draft" string="borrador 2" type="object" /-->
             </xpath>
 			
