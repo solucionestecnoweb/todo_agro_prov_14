@@ -62,116 +62,14 @@ class AccountMove(models.Model):
         self.state='cancel'
 
     def llenar(self):
-        temporal=self.env['account.move.line.resumen'].search([])
-        temporal.with_context(force_delete=True).unlink()
-
+        #temporal=self.env['account.move.line.resumen'].search([])
+        #temporal.with_context(force_delete=True).unlink()
         movimientos = self.env['account.move'].search([('move_type','!=','entry'),('state','=','posted')])
         for det_m in movimientos:
+            temporal=self.env['account.move.line.resumen'].search([('invoice_id','=',det_m.id)])
+            temporal.with_context(force_delete=True).unlink()
+            det_m.suma_alicuota_iguales_iva()
 
-            if det_m.move_type=='in_invoice' or det_m.move_type=='in_refund' or det_m.move_type=='in_receipt':
-                type_tax_use='purchase'
-                porcentaje_ret=det_m.company_id.partner_id.vat_retention_rate
-            if det_m.move_type=='out_invoice' or det_m.move_type=='out_refund' or det_m.move_type=='out_receipt':
-                type_tax_use='sale'
-                porcentaje_ret=det_m.partner_id.vat_retention_rate
-            if det_m.move_type=='in_invoice' or det_m.move_type=='out_invoice':
-                tipo_doc="01"
-            if det_m.move_type=='in_refund' or det_m.move_type=='out_refund':
-                tipo_doc="03"
-            if det_m.move_type=='in_receipt' or det_m.move_type=='out_receipt':
-                tipo_doc="02"
-
-            if det_m.move_type in ('in_invoice','in_refund','in_receipt','out_receipt','out_refund','out_invoice'):
-                lista_impuesto = det_m.env['account.tax'].search([('type_tax_use','=',type_tax_use)])
-                #('aliquot','not in',('general','exempt')
-                base=0
-                total=0
-                total_impuesto=0
-                total_exento=0
-                alicuota_adicional=0
-                alicuota_reducida=0
-                alicuota_general=0
-                base_general=0
-                base_reducida=0
-                base_adicional=0
-                retenido_general=0
-                retenido_reducida=0
-                retenido_adicional=0
-                valor_iva=0
-
-                for det_tax in lista_impuesto:
-                    tipo_alicuota=det_tax.aliquot
-                    
-                    #raise UserError(_('tipo_alicuota: %s')%tipo_alicuota)
-                    det_lin=det_m.invoice_line_ids.search([('tax_ids','=',det_tax.id),('move_id','=',det_m.id)])
-                    if det_lin:
-                        for det_fac in det_lin:#USAR AQUI ACOMULADORES
-                            if det_m.state!="cancel":
-                                base=base+det_fac.price_subtotal
-                                total=total+det_fac.price_total
-                                id_impuesto=det_fac.tax_ids.id
-                                total_impuesto=total_impuesto+(det_fac.price_total-det_fac.price_subtotal)
-                                if tipo_alicuota=="general":
-                                    alicuota_general=alicuota_general+(det_fac.price_total-det_fac.price_subtotal)
-                                    base_general=base_general+det_fac.price_subtotal
-                                    valor_iva=det_fac.tax_ids.amount
-                                if tipo_alicuota=="exempt":
-                                    total_exento=total_exento+det_fac.price_subtotal
-                                if tipo_alicuota=="reduced":
-                                    alicuota_reducida=alicuota_reducida+(det_fac.price_total-det_fac.price_subtotal)
-                                    base_reducida=base_reducida+det_fac.price_subtotal
-                                if tipo_alicuota=="additional":
-                                    alicuota_adicional=alicuota_adicional+(det_fac.price_total-det_fac.price_subtotal)
-                                    base_adicional=base_adicional+det_fac.price_subtotal
-                        total_ret_iva=(total_impuesto*porcentaje_ret)/100
-                        retenido_general=(alicuota_general*porcentaje_ret)/100
-                        retenido_reducida=(alicuota_reducida*porcentaje_ret)/100
-                        retenido_adicional=(alicuota_adicional*porcentaje_ret)/100
-                if det_m.move_type=='in_refund' or det_m.move_type=='out_refund':
-                    base=-1*base
-                    total=-1*total
-                    total_impuesto=-1*total_impuesto
-                    alicuota_general=-1*alicuota_general
-                    valor_iva=-1*valor_iva
-                    total_exento=-1*total_exento
-                    alicuota_reducida=-1*alicuota_reducida
-                    alicuota_adicional=-1*alicuota_adicional
-                    total_ret_iva=-1*total_ret_iva
-                    base_adicional=-1*base_adicional
-                    base_reducida=-1*base_reducida
-                    base_general=-1*base_general
-                    retenido_general=-1*retenido_general
-                    retenido_reducida=-1*retenido_reducida
-                    retenido_adicional=-1*retenido_adicional
-
-                values={
-                'total_con_iva':total,
-                'total_base':base,
-                'total_valor_iva':total_impuesto,
-                'tax_id':det_fac.tax_ids.id,
-                'invoice_id':det_m.id,
-                'vat_ret_id':det_m.vat_ret_id.id,
-                'nro_comprobante':det_m.vat_ret_id.name,
-                'porcentaje_ret':porcentaje_ret,
-                'total_ret_iva':total_ret_iva,
-                'type':det_m.move_type,
-                'state':det_m.state,
-                'state_voucher_iva':det_m.vat_ret_id.state,
-                'tipo_doc':tipo_doc,
-                'total_exento':total_exento,
-                'alicuota_reducida':alicuota_reducida,
-                'alicuota_adicional':alicuota_adicional,
-                'alicuota_general':alicuota_general,
-                'fecha_fact':det_m.date,
-                'fecha_comprobante':det_m.vat_ret_id.voucher_delivery_date,
-                'base_adicional':base_adicional,
-                'base_reducida':base_reducida,
-                'base_general':base_general,
-                'retenido_general':retenido_general,
-                'retenido_reducida':retenido_reducida,
-                'retenido_adicional':retenido_adicional,
-                }
-                det_m.env['account.move.line.resumen'].create(values)
 
 
     def suma_alicuota_iguales_iva(self):
@@ -200,9 +98,9 @@ class AccountMove(models.Model):
             # ***** FIN VERIFICACION
             lista_impuesto = self.env['account.tax'].search([('type_tax_use','=',type_tax_use)])
             #('aliquot','not in',('general','exempt')
-            base=0
-            total=0
-            total_impuesto=0
+            #base=0
+            #total=0
+            #total_impuesto=0
             total_exento=0
             alicuota_adicional=0
             alicuota_reducida=0
@@ -210,17 +108,33 @@ class AccountMove(models.Model):
             base_general=0
             base_reducida=0
             base_adicional=0
-            retenido_general=0
-            retenido_reducida=0
-            retenido_adicional=0
-            valor_iva=0
+            #retenido_general=0
+            #retenido_reducida=0
+            #retenido_adicional=0
+            #valor_iva=0
 
             for det_tax in lista_impuesto:
+                base=0
+                total=0
+                total_impuesto=0
+                #total_exento=0
+                #alicuota_adicional=0
+                #alicuota_reducida=0
+                #alicuota_general=0
+                #base_general=0
+                #base_reducida=0
+                #base_adicional=0
+                retenido_general=0
+                retenido_reducida=0
+                retenido_adicional=0
+                valor_iva=0
+
                 tipo_alicuota=det_tax.aliquot
-                
+                #raise UserError(_('tipo_alicuota: %s')%tipo_alicuota)
                 #raise UserError(_('lineas factura: %s')%self.invoice_line_ids)
                 #det_lin=self.invoice_line_ids.search([('tax_ids','=',det_tax.id),('move_id','=',self.id)])
                 det_lin=self.invoice_line_ids
+                #raise UserError(_('lineas factura: %s')%det_lin)
                 if det_lin:
                     for det_fac in det_lin:#USAR AQUI ACOMULADORES
                         if self.state!="cancel":
@@ -229,17 +143,21 @@ class AccountMove(models.Model):
                             id_impuesto=det_fac.tax_ids.id
                             total_impuesto=total_impuesto+(det_fac.price_total-det_fac.price_subtotal)
                             if tipo_alicuota=="general":
-                                alicuota_general=alicuota_general+(det_fac.price_total-det_fac.price_subtotal)
-                                base_general=base_general+det_fac.price_subtotal
-                                valor_iva=det_fac.tax_ids.amount
+                                if det_fac.tax_ids.aliquot=="general":
+                                    alicuota_general=alicuota_general+(det_fac.price_total-det_fac.price_subtotal)
+                                    base_general=base_general+det_fac.price_subtotal
+                                    valor_iva=det_fac.tax_ids.amount
                             if tipo_alicuota=="exempt":
-                                total_exento=total_exento+det_fac.price_subtotal
+                                if det_fac.tax_ids.aliquot=="exempt":
+                                    total_exento=total_exento+det_fac.price_subtotal
                             if tipo_alicuota=="reduced":
-                                alicuota_reducida=alicuota_reducida+(det_fac.price_total-det_fac.price_subtotal)
-                                base_reducida=base_reducida+det_fac.price_subtotal
+                                if det_fac.tax_ids.aliquot=="reduced":  
+                                    alicuota_reducida=alicuota_reducida+(det_fac.price_total-det_fac.price_subtotal)
+                                    base_reducida=base_reducida+det_fac.price_subtotal
                             if tipo_alicuota=="additional":
-                                alicuota_adicional=alicuota_adicional+(det_fac.price_total-det_fac.price_subtotal)
-                                base_adicional=base_adicional+det_fac.price_subtotal
+                                if det_fac.tax_ids.aliquot=="additional":
+                                    alicuota_adicional=alicuota_adicional+(det_fac.price_total-det_fac.price_subtotal)
+                                    base_adicional=base_adicional+det_fac.price_subtotal
                     total_ret_iva=(total_impuesto*porcentaje_ret)/100
                     retenido_general=(alicuota_general*porcentaje_ret)/100
                     retenido_reducida=(alicuota_reducida*porcentaje_ret)/100
